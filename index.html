@@ -1,0 +1,278 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>STUDENT OS | Smart Learning</title>
+<style>
+:root{--bg:#0b1020;--panel:#151d32;--line:#293550;--text:#edf2ff;--muted:#a8b4ce;--accent:#8b7cff;--cyan:#55d8ed}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px Arial,sans-serif}
+button,input,textarea,select{font:inherit}
+button{cursor:pointer;border:0;border-radius:9px;padding:11px 15px;background:var(--accent);color:white;font-weight:bold}
+input,textarea,select{width:100%;padding:12px;margin:6px 0 12px;background:#0d1427;border:1px solid var(--line);border-radius:9px;color:white}
+textarea{min-height:90px;resize:vertical}
+header{padding:20px 5%;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{font-size:22px;font-weight:900}.logo span{color:var(--cyan)}
+#app{display:none}
+.layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 70px)}
+nav{padding:18px;border-right:1px solid var(--line)}
+nav button{display:block;width:100%;text-align:left;background:transparent;margin:4px 0;color:var(--muted)}
+nav button.active,nav button:hover{background:#272546;color:white}
+main{padding:26px;min-width:0}
+h1{font-size:30px;margin:4px 0 8px}h2{font-size:20px}
+.muted{color:var(--muted);line-height:1.6}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin:18px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:18px;margin-bottom:14px}
+.stat{font-size:28px;font-weight:bold;color:var(--cyan)}
+.row{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.row>*{flex:1}
+.small{font-size:12px;color:var(--muted)}
+.item{padding:12px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.item button{margin:4px}
+.danger{background:#a93f57}.secondary{background:#303c57}
+#auth{max-width:440px;margin:7vh auto;padding:28px}
+#auth h1{margin-bottom:20px}
+.hidden{display:none!important}
+#certificate{background:white;color:#17203a;text-align:center;padding:35px;border:9px double #8b7cff}
+#certificate h1{color:#5b45c5}
+footer{text-align:center;color:var(--muted);padding:22px}
+@media(max-width:700px){.layout{grid-template-columns:1fr}nav{display:grid;grid-template-columns:repeat(2,1fr);gap:4px;border-right:0;border-bottom:1px solid var(--line)}nav button{font-size:12px;padding:10px}main{padding:15px}h1{font-size:25px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">STUDENT <span>OS</span></div>
+  <div class="row" style="flex:0 1 auto">
+    <span id="userLabel" class="muted"></span>
+    <button id="logout" class="secondary hidden" onclick="logout()">Logout</button>
+  </div>
+</header>
+
+<section id="auth" class="card">
+  <h1>Welcome to STUDENT OS</h1>
+  <p class="muted">Your personal learning and productivity space.</p>
+  <div class="row">
+    <button onclick="authMode='login';renderAuth()">Login</button>
+    <button class="secondary" onclick="authMode='signup';renderAuth()">Create account</button>
+  </div>
+  <form id="authForm">
+    <label>Full name</label><input id="authName" placeholder="Your name">
+    <label>Email</label><input id="authEmail" type="email" required placeholder="you@example.com">
+    <label>Password</label><input id="authPassword" type="password" minlength="8" required placeholder="At least 8 characters">
+    <label>Class</label>
+    <select id="authClass"><option>Class 6</option><option>Class 7</option><option selected>Class 8</option></select>
+    <label><input id="remember" type="checkbox" checked style="width:auto"> Remember me on this browser</label>
+    <button id="authSubmit" type="submit" style="width:100%">Login</button>
+    <p id="authMessage" class="muted"></p>
+  </form>
+  <p class="small">Demo account data stays in this browser. This is not secure production authentication.</p>
+</section>
+
+<div id="app">
+<div class="layout">
+<nav id="nav">
+<button data-page="dashboard" class="active">🏠 Dashboard</button>
+<button data-page="ai">🤖 AI Study Assistant</button>
+<button data-page="homework">📚 Homework Manager</button>
+<button data-page="timetable">🗓️ Timetable</button>
+<button data-page="notes">📝 Notes Library</button>
+<button data-page="quiz">🧠 IT Quiz Centre</button>
+<button data-page="robotics">🤖 Robotics Projects</button>
+<button data-page="certificates">🏆 Certificates</button>
+<button data-page="admin">⚙️ Admin Dashboard</button>
+</nav>
+<main id="content"></main>
+</div>
+</div>
+<footer>STUDENT OS · Learn • Plan • Create</footer>
+
+<script>
+const $=id=>document.getElementById(id);
+const read=(k,d=[])=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}};
+const write=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+let authMode='login', currentUser=null, page='dashboard';
+const key=()=>currentUser?.email||'guest';
+const store=(name,data)=>write('sos:'+key()+':'+name,data);
+const load=(name,def=[])=>read('sos:'+key()+':'+name,def);
+function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function renderAuth(){
+ $('authSubmit').textContent=authMode==='login'?'Login':'Create account';
+ $('authName').parentElement.querySelector('label').style.display=authMode==='signup'?'block':'none';
+ $('authName').style.display=authMode==='signup'?'block':'none';
+ $('authClass').style.display=authMode==='signup'?'block':'none';
+}
+renderAuth();
+$('authForm').onsubmit=e=>{
+ e.preventDefault();
+ const email=$('authEmail').value.trim().toLowerCase(),password=$('authPassword').value;
+ let users=read('sos:users',{});
+ if(authMode==='signup'){
+  if(!$('authName').value.trim()){ $('authMessage').textContent='Enter your name.';return}
+  if(users[email]){$('authMessage').textContent='Account already exists. Please log in.';return}
+  // Demo only: never store real passwords like this in a production website.
+  users[email]={name:$('authName').value.trim(),password,grade:$('authClass').value};
+  write('sos:users',users);
+ }else{
+  if(!users[email]||users[email].password!==password){$('authMessage').textContent='Incorrect email or password.';return}
+ }
+ currentUser={email,...users[email]};
+ if($('remember').checked)localStorage.setItem('sos:session',email);
+ else sessionStorage.setItem('sos:session',email);
+ start();
+};
+function start(){
+ $('auth').classList.add('hidden');$('app').style.display='block';$('logout').classList.remove('hidden');
+ $('userLabel').textContent=currentUser.name+' · '+currentUser.grade;
+ render();
+}
+function logout(){
+ localStorage.removeItem('sos:session');sessionStorage.removeItem('sos:session');
+ currentUser=null;$('app').style.display='none';$('auth').classList.remove('hidden');$('logout').classList.add('hidden');$('userLabel').textContent='';
+}
+document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{
+ page=b.dataset.page;document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x===b));render()
+});
+function box(title,body){return `<section class="card"><h2>${title}</h2>${body}</section>`}
+function field(id,label,placeholder,type='text'){return `<label>${label}</label><input id="${id}" type="${type}" placeholder="${placeholder}">`}
+function textfield(id,label,placeholder){return `<label>${label}</label><textarea id="${id}" placeholder="${placeholder}"></textarea>`}
+function btn(label,fn,cls=''){return `<button class="${cls}" onclick="${fn}">${label}</button>`}
+function addItem(bucket,obj){const a=load(bucket);a.unshift({...obj,id:Date.now()});store(bucket,a);render()}
+function removeItem(bucket,id){store(bucket,load(bucket).filter(x=>x.id!==id));render()}
+function listItems(bucket,fields){
+ const a=load(bucket);
+ return a.length?a.map(x=>`<div class="item"><b>${esc(x.title||x.subject||'Item')}</b><p class="muted">${fields.map(f=>esc(x[f]||'')).filter(Boolean).join(' · ')}</p>${x.done?'<b>✅ Completed</b>':''}
+ ${bucket==='homework'&&!x.done?btn('Mark completed',`completeHomework(${x.id})`):''}
+ ${btn('Delete',`removeItem('${bucket}',${x.id})`,'danger')}</div>`).join(''):'<p class="muted">Nothing here yet. Add your first item above.</p>';
+}
+function render(){
+ const hw=load('homework'),notes=load('notes'),projects=load('projects');
+ let html='';
+ if(page==='dashboard')html=`<h1>Hello, ${esc(currentUser.name)} 👋</h1><p class="muted">Welcome to your personal student workspace.</p>
+ <div class="grid">${[['Homework',hw.filter(x=>!x.done).length],['My Notes',notes.length],['Robotics Projects',projects.length],['Certificates',load('certs').length]].map(([a,b])=>`<div class="card"><p class="muted">${a}</p><div class="stat">${b}</div></div>`).join('')}</div>
+ ${box('Quick start','Choose any tool from the menu. Upload your diary photo in Homework Manager or ask a question in AI Study Assistant.')}`;
+ if(page==='ai')html=`<h1>AI Study Assistant</h1><p class="muted">Ask a question and receive an AI-generated explanation.</p>${box('Ask Gemini',`
+ <label>Your question</label><textarea id="aiQuestion" placeholder="Explain photosynthesis in simple words..."></textarea>
+ ${field('aiBook','Optional textbook context','Chapter, page or pasted textbook text')}
+ <button onclick="askAI()">Ask AI</button><div id="aiAnswer" class="item"></div>
+ <p class="small">Requires a secure backend endpoint at /api/ai. Do not paste a secret API key into this public HTML file.</p>`)}`;
+ if(page==='homework')html=`<h1>Homework Manager</h1><p class="muted">Add homework or upload a photo of your school diary.</p>${box('Add homework',`
+ ${field('hwSubject','Subject','Information Technology')}
+ ${field('hwTitle','Homework','Complete exercise 2')}
+ <label>Diary photo</label><input id="hwPhoto" type="file" accept="image/*" capture="environment">
+ <button onclick="addHomework()">Save homework</button><button class="secondary" onclick="readDiary()">Extract homework with AI</button>
+ <p class="small">Photo extraction needs a configured secure Gemini backend.</p>`)}${box('My homework',listItems('homework',['subject','description']))}`;
+ if(page==='timetable')html=`<h1>Timetable</h1>${box('Add a schedule item',`
+ ${field('ttDay','Day','Monday')}
+ ${field('ttTime','Time','7:30 AM')}
+ ${field('ttTitle','Class / task','Mathematics')}
+ <label>Upload timetable photo</label><input id="ttPhoto" type="file" accept="image/*">
+ <button onclick="addTimetable()">Save schedule</button><button class="secondary" onclick="prepareBooks()">Prepare tomorrow’s books</button><div id="bookPlan"></div>`)}${box('My schedule',listItems('timetable',['day','time','description']))}`;
+ if(page==='notes')html=`<h1>Notes Library</h1><p class="muted">Your library starts empty. Create your own notes.</p>${box('Add notes',`
+ ${field('noteTitle','Title','Science chapter 1')}
+ ${textfield('noteBody','Your notes','Write your notes here...')}
+ <button onclick="addNote()">Save note</button>`)}${box('My notes',listItems('notes',['body']))}`;
+ if(page==='quiz')html=`<h1>IT Quiz Centre</h1><p class="muted">Choose a class and test your knowledge.</p>${box('Start quiz',`
+ <label>Class</label><select id="quizGrade"><option>Class 6</option><option>Class 7</option><option selected>Class 8</option></select>
+ <label>Topic</label><select id="quizTopic"><option>Computer Fundamentals</option><option>Internet and Cyber Safety</option><option>AI Fundamentals</option><option>Programming Basics</option><option>Data and Spreadsheets</option></select>
+ <button onclick="startQuiz()">Start quiz</button><div id="quizArea"></div>`)}
+ <p class="small">The sample questions below are general practice questions, not a verified complete copy of every NCERT/CBSE or school textbook chapter.</p>`;
+ if(page==='robotics')html=`<h1>Robotics Project Manager</h1>${box('Add project',`
+ ${field('prTitle','Project name','Disaster Rescue Rover')}
+ ${textfield('prBody','Description / progress','Describe your project and what you have completed.')}
+ <label>Project photo</label><input id="prPhoto" type="file" accept="image/*">
+ <button onclick="addProject()">Save project</button>`)}${box('My projects',listItems('projects',['description']))}`;
+ if(page==='certificates')html=`<h1>Certificates</h1><p class="muted">Create printable certificates for your completed work.</p>${box('Generate certificate',`
+ <label>Certificate type</label><select id="certType"><option>Homework Completion</option><option>Quiz Achievement</option><option>Robotics Project Achievement</option></select>
+ ${field('certTitle','Title','Certificate of Achievement')}
+ <button onclick="makeCertificate()">Generate certificate</button><div id="certArea"></div>`)}${box('Saved certificates',listItems('certs',['type','date']))}`;
+ if(page==='admin')html=`<h1>Admin Dashboard</h1><p class="muted">Local demo administration. This is not a secure administrator role.</p>
+ ${box('Local data summary',`<p>Homework: ${hw.length}</p><p>Notes: ${notes.length}</p><p>Robotics projects: ${projects.length}</p><p>Certificates: ${load('certs').length}</p>`)}
+ ${box('Export your data',`<button onclick="exportData()">Download backup JSON</button>`)}
+ ${box('Reset my workspace',`<p class="muted">This deletes this account’s locally saved workspace.</p><button class="danger" onclick="resetData()">Reset workspace</button>`)}`;
+ $('content').innerHTML=html;
+}
+function addHomework(){
+ const subject=$('hwSubject').value.trim(),title=$('hwTitle').value.trim();
+ if(!title)return alert('Enter the homework details.');
+ addItem('homework',{subject,title,description:title,done:false,photoName:$('hwPhoto').files[0]?.name||''});
+}
+function completeHomework(id){
+ const a=load('homework'),x=a.find(i=>i.id===id);if(x){x.done=true;store('homework',a);const c=load('certs');c.unshift({id:Date.now(),type:'Homework Completion',title:x.title,date:new Date().toLocaleDateString()});store('certs',c);render()}
+}
+function addTimetable(){
+ const title=$('ttTitle').value.trim();if(!title)return alert('Enter a class or task.');
+ addItem('timetable',{day:$('ttDay').value,time:$('ttTime').value,title,description:title,photoName:$('ttPhoto').files[0]?.name||''});
+}
+function prepareBooks(){
+ const t=load('timetable'),tomorrow=new Date(Date.now()+86400000).toLocaleDateString('en-US',{weekday:'long'});
+ const items=t.filter(x=>x.day.toLowerCase()===tomorrow.toLowerCase());
+ $('bookPlan').innerHTML='<p><b>Prepare for '+esc(tomorrow)+':</b></p>'+ (items.length?items.map(x=>`<p>☐ ${esc(x.title)} — keep the relevant book and notebook ready.</p>`).join(''):'<p>No schedule saved for tomorrow yet. Add your timetable first.</p>');
+}
+function addNote(){
+ const title=$('noteTitle').value.trim(),body=$('noteBody').value.trim();
+ if(!title||!body)return alert('Enter a title and your notes.');
+ addItem('notes',{title,body});
+}
+function addProject(){
+ const title=$('prTitle').value.trim();if(!title)return alert('Enter a project name.');
+ addItem('projects',{title,description:$('prBody').value,photoName:$('prPhoto').files[0]?.name||''});
+}
+const questions=[
+ {g:'Class 6',t:'Computer Fundamentals',q:'Which part is often called the brain of a computer?',o:['Monitor','CPU','Keyboard','Mouse'],a:1},
+ {g:'Class 6',t:'Internet and Cyber Safety',q:'Which is a safer password practice?',o:['Share it with friends','Use your name only','Use a strong unique password','Use 123456'],a:2},
+ {g:'Class 7',t:'AI Fundamentals',q:'What does AI stand for?',o:['Automatic Internet','Artificial Intelligence','Advanced Input','Applied Information'],a:1},
+ {g:'Class 7',t:'Programming Basics',q:'A sequence of instructions for a computer is a:',o:['Program','Printer','Folder','Monitor'],a:0},
+ {g:'Class 8',t:'AI Fundamentals',q:'Which is an example of training data?',o:['Examples used to teach an AI model','A computer mouse','A monitor cable','A power switch'],a:0},
+ {g:'Class 8',t:'Internet and Cyber Safety',q:'What should you do with a suspicious link?',o:['Open it immediately','Share it','Check with a trusted adult before opening','Enter your password'],a:2},
+ {g:'Class 8',t:'Data and Spreadsheets',q:'What is a spreadsheet cell?',o:['A row-column intersection','A printer part','A web browser','A password'],a:0},
+ {g:'Class 8',t:'Programming Basics',q:'What is an algorithm?',o:['A step-by-step procedure','A monitor','A type of keyboard','A website address'],a:0}
+];
+function startQuiz(){
+ const g=$('quizGrade').value,t=$('quizTopic').value;
+ const qs=questions.filter(q=>q.g===g&&q.t===t);
+ const pool=qs.length?qs:questions.filter(q=>q.g===g);
+ if(!pool.length){$('quizArea').innerHTML='<p>No sample questions yet for this selection.</p>';return}
+ $('quizArea').innerHTML=pool.map((q,i)=>`<div class="item"><b>${i+1}. ${esc(q.q)}</b>${q.o.map((o,j)=>`<label style="display:block"><input style="width:auto" type="radio" name="q${i}" value="${j}"> ${esc(o)}</label>`).join('')}<input type="hidden" id="ans${i}" value="${q.a}"></div>`).join('')+`<button onclick="scoreQuiz(${pool.length})">Submit quiz</button><div id="score"></div>`;
+ window.currentQuiz=pool;
+}
+function scoreQuiz(n){
+ let score=0;for(let i=0;i<n;i++){const x=document.querySelector('input[name="q'+i+'"]:checked');if(x&&Number(x.value)===currentQuiz[i].a)score++}
+ $('score').innerHTML=`<h2>Your score: ${score}/${n}</h2><p>Review each question and try again to improve.</p>`;
+ const c=load('certs');c.unshift({id:Date.now(),type:'Quiz Achievement',title:'IT Quiz',date:new Date().toLocaleDateString(),score:score+'/'+n});store('certs',c);
+}
+function makeCertificate(){
+ const type=$('certType').value,title=$('certTitle').value.trim()||type;
+ const cert={id:Date.now(),type,title,date:new Date().toLocaleDateString()};
+ const c=load('certs');c.unshift(cert);store('certs',c);
+ $('certArea').innerHTML=`<div id="certificate"><h1>Certificate of Achievement</h1><p>This certificate is presented to</p><h2>${esc(currentUser.name)}</h2><p>For: ${esc(title)}</p><p>${esc(type)}</p><p>Date: ${esc(cert.date)}</p><p>STUDENT OS</p></div><button onclick="window.print()">Print / Save PDF</button>`;
+}
+async function askAI(){
+ const q=$('aiQuestion').value.trim(),context=$('aiBook').value.trim();
+ if(!q)return alert('Enter a question.');
+ $('aiAnswer').textContent='Thinking...';
+ try{
+  const r=await fetch('/api/ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q,context,grade:currentUser.grade})});
+  if(!r.ok)throw Error('AI backend is not configured yet.');
+  const data=await r.json();$('aiAnswer').textContent=data.answer||'No answer received.';
+ }catch(e){$('aiAnswer').textContent='Gemini is not connected yet. Configure the secure /api/ai backend and GEMINI_API_KEY environment variable to enable AI answers.'}
+}
+async function readDiary(){
+ const f=$('hwPhoto').files[0];if(!f)return alert('Upload a diary photo first.');
+ $('hwTitle').value='Photo selected: '+f.name+' — connect the Gemini image-reading backend to extract the homework.';
+}
+function exportData(){
+ const data={profile:currentUser,homework:load('homework'),timetable:load('timetable'),notes:load('notes'),projects:load('projects'),certificates:load('certs')};
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='student-os-backup.json';a.click();URL.revokeObjectURL(a.href);
+}
+function resetData(){
+ if(!confirm('Delete all workspace data for this account?'))return;
+ for(const n of ['homework','timetable','notes','projects','certs'])localStorage.removeItem('sos:'+key()+':'+n);
+ render();
+}
+const saved=localStorage.getItem('sos:session')||sessionStorage.getItem('sos:session');
+if(saved){const users=read('sos:users',{});if(users[saved]){currentUser={email:saved,...users[saved]};start()}}
+</script>
+</body>
+</html>
