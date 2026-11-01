@@ -9,77 +9,69 @@ export default async function handler(req, res) {
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
-    return res.status(500).json({
-      error: "Gemini API key is not configured."
-    });
+    return res.status(500).json({ error: "API key not configured." });
   }
 
   const { question, context, grade } = req.body || {};
 
-  if (typeof question !== "string" ||
-      !question.trim() ||
-      question.length > 4000) {
-    return res.status(400).json({
-      error: "Please enter a valid question."
-    });
+  if (typeof question !== "string" || !question.trim()) {
+    return res.status(400).json({ error: "Enter a question." });
   }
 
-  const prompt = `
-You are STUDENT OS, a friendly school study assistant.
-Explain concepts clearly and simply for a ${grade || "school"} student.
-Use the provided textbook context when available.
-Do not invent textbook quotations or claim a fact comes from a book
-unless it is supported by the supplied context.
+  const prompt = `You are STUDENT OS, a friendly school study assistant.
+Explain clearly for a ${grade || "school"} student.
+Use simple language and examples.
+Textbook context: ${String(context || "").slice(0, 12000)}
+Question: ${question.trim().slice(0, 4000)}`;
 
-Textbook context:
-${String(context || "No textbook context supplied").slice(0, 12000)}
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const response = await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": apiKey
+          },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }]
+          })
+        }
+      );
 
-Student question:
-${question.trim()}
-`;
+      const data = await response.json();
 
-  try {
-    const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": apiKey
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{ text: prompt }]
-          }]
-        })
+      if (response.ok) {
+        const answer = data.candidates?.[0]?.content?.parts
+          ?.map(part => part.text || "").join("\n");
+
+        return res.status(200).json({
+          answer: answer || "No answer received."
+        });
       }
-    );
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error("Gemini API error:", response.status);
-      return res.status(502).json({
-        error: "Gemini could not answer. Please try again."
-      });
+      if (response.status !== 503 && response.status !== 429) {
+        return res.status(502).json({
+          error: "Gemini request failed. Please try again later."
+        });
+      }
+    } catch (error) {
+      if (attempt === 2) {
+        return res.status(500).json({
+          error: "Unable to connect to Gemini."
+        });
+      }
     }
 
-    const answer = data.candidates?.[0]?.content?.parts
-      ?.map(part => part.text || "")
-      .join("\n");
-
-    if (!answer) {
-      return res.status(502).json({
-        error: "No answer was returned."
-      });
+    if (attempt < 2) {
+      await new Promise(resolve =>
+        setTimeout(resolve, 1000 * (2 ** attempt))
+      );
     }
-
-    return res.status(200).json({ answer });
-
-  } catch (error) {
-    console.error("AI request failed:", error.message);
-    return res.status(500).json({
-      error: "Unable to connect to Gemini."
-    });
   }
+
+  return res.status(503).json({
+    error: "Gemini is busy. Please try again shortly."
+  });
 }
